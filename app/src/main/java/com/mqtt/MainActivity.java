@@ -18,10 +18,26 @@ import com.mqtt.databinding.ActivityMainBinding;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import org.eclipse.paho.client.mqttv3.IMqttActionListener;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.IMqttToken;
+import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
+import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+
 public class MainActivity extends AppCompatActivity {
 
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
+
+    private static final String MQTT_BROKER = "tcp://broker.example.com:1883";
+
+
+    private MqttAsyncClient mqttClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,6 +45,48 @@ public class MainActivity extends AppCompatActivity {
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        try {
+            mqttClient = new MqttAsyncClient(MQTT_BROKER, MqttClient.generateClientId(), new MemoryPersistence());
+            mqttClient.setCallback(new MqttCallback() {
+                @Override
+                public void connectionLost(Throwable cause) {
+                    // Handle connection lost event
+                }
+
+                @Override
+                public void messageArrived(String topic, MqttMessage message) throws Exception {
+                    // Handle incoming messages
+                }
+
+                @Override
+                public void deliveryComplete(IMqttDeliveryToken token) {
+                    // Handle 'message delivery complete' event
+                }
+            });
+
+            MqttConnectOptions options = new MqttConnectOptions();
+            options.setCleanSession(true);
+
+            IMqttToken connectToken = mqttClient.connect(options);
+            connectToken.setActionCallback(new IMqttActionListener() {
+                @Override
+                public void onSuccess(IMqttToken asyncActionToken) {
+                    // Connection success
+                    // further MQTT operations here
+                }
+
+                @Override
+                public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
+                    // Connection failed
+                    // Handle the failure scenario
+                }
+            });
+        } catch (MqttException e) {
+            e.printStackTrace();
+        }
+
+
 
         setSupportActionBar(binding.toolbar);
 
@@ -43,6 +101,8 @@ public class MainActivity extends AppCompatActivity {
                         .setAction("Action", null).show();
             }
         });
+
+
     }
 
     @Override
