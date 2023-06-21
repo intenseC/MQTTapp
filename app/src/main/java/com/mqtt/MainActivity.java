@@ -2,11 +2,7 @@ package com.mqtt;
 
 import android.os.Bundle;
 
-import com.google.android.material.snackbar.Snackbar;
-
 import androidx.appcompat.app.AppCompatActivity;
-
-import android.view.View;
 
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
@@ -17,6 +13,7 @@ import com.mqtt.databinding.ActivityMainBinding;
 
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.TextView;
 
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -28,39 +25,91 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.java_websocket.WebSocket;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity  {
 
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
-
-    private static final String MQTT_BROKER = "tcp://broker.example.com:1883";
-
+    private static final String MQTT_BROKER_0 = "tcp://192.168.1.3:1883";
+    private static final String MQTT_BROKER_1 = "tcp://10.0.0.1:1883";
+    private static final String MQTT_BROKER = "tcp://192.168.11.17:1883";
+    private final String topic = "mqtt_test";
 
     private MqttAsyncClient mqttClient;
+    private webSocketServer webSocketSvr;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    public void onButtonClicked() {
+        scrPrint("MQTT ASYNC TESTING");
+        MQTTAsyncTest();
+//      MQTTBlockingTest();
+    }
 
-        binding = ActivityMainBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
+
+    private void scrPrint(String dat) {
+        TextView textview_first = findViewById(R.id.textview_first);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                textview_first.setText(dat);
+            }
+        });
+            webSocketSvr.broadcast(dat);
+    }
+
+    private void MQTTBlockingTest() {
+        try {
+            MqttClient mqttClient = new MqttClient(MQTT_BROKER, MqttClient.generateClientId(),  new MemoryPersistence());
+            MqttConnectOptions options = new MqttConnectOptions();
+            options.setCleanSession(true);
+
+            mqttClient.connect(options);
+
+            if (mqttClient.isConnected()) {
+                System.out.println("Connected to MQTT broker");
+                scrPrint("Connected to MQTT broker");
+                // Subscribe to a topic
+                mqttClient.subscribe(topic);
+
+                // Publish a message
+                String message = "Hello, MQTT!";
+                mqttClient.publish(topic, new MqttMessage(message.getBytes()));
+
+                // Disconnect from the broker
+                mqttClient.disconnect();
+                System.out.println("Disconnected from MQTT broker");
+                scrPrint("Disconnected from MQTT broker");
+            } else {
+                System.out.println("Failed to connect to MQTT broker");
+                scrPrint("Failed to connect to MQTT broker");
+            }
+        } catch (MqttException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    private void MQTTAsyncTest() {
+        MemoryPersistence memoryPersistence = new MemoryPersistence();
 
         try {
-            mqttClient = new MqttAsyncClient(MQTT_BROKER, MqttClient.generateClientId(), new MemoryPersistence());
-            mqttClient.setCallback(new MqttCallback() {
+            MqttAsyncClient mqttAsyncClient = new MqttAsyncClient(MQTT_BROKER, MqttClient.generateClientId(), memoryPersistence);
+            mqttAsyncClient.setCallback(new MqttCallback() {
                 @Override
                 public void connectionLost(Throwable cause) {
-                    // Handle connection lost event
+                    scrPrint("Disconnected");
+                    // on connection lost event
                 }
 
                 @Override
                 public void messageArrived(String topic, MqttMessage message) throws Exception {
-                    // Handle incoming messages
+                    scrPrint("Got new message");
+                    // incoming messages
                 }
 
                 @Override
                 public void deliveryComplete(IMqttDeliveryToken token) {
+                    scrPrint("Message Delivered");
                     // Handle 'message delivery complete' event
                 }
             });
@@ -68,16 +117,23 @@ public class MainActivity extends AppCompatActivity {
             MqttConnectOptions options = new MqttConnectOptions();
             options.setCleanSession(true);
 
-            IMqttToken connectToken = mqttClient.connect(options);
-            connectToken.setActionCallback(new IMqttActionListener() {
+            mqttAsyncClient.connect(options, null, new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
+                    scrPrint("Connected to MQTT broker");
                     // Connection success
                     // further MQTT operations here
+                    try {
+                        MqttMessage mqttMessage = new MqttMessage("msg".getBytes());
+                        mqttAsyncClient.publish(topic, mqttMessage);
+                    } catch (MqttException e) {
+                        e.printStackTrace();
+                    }
                 }
 
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
+                    scrPrint("Failed to connect to MQTT broker");
                     // Connection failed
                     // Handle the failure scenario
                 }
@@ -85,7 +141,32 @@ public class MainActivity extends AppCompatActivity {
         } catch (MqttException e) {
             e.printStackTrace();
         }
+    }
 
+
+
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+        System.out.println("Starting MQTT ");
+        scrPrint("Starting MQTT client...");
+
+
+        webSocketSvr = new webSocketServer(8899) {
+            @Override
+            public void onMessage(WebSocket conn, String message) {
+                scrPrint(message);
+            }
+        };
+        webSocketSvr.start();
+
+
+//        MQTTBlockingTest();
+        MQTTAsyncTest();
 
 
         setSupportActionBar(binding.toolbar);
@@ -93,7 +174,7 @@ public class MainActivity extends AppCompatActivity {
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
         appBarConfiguration = new AppBarConfiguration.Builder(navController.getGraph()).build();
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
-
+/*
         binding.fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -101,7 +182,7 @@ public class MainActivity extends AppCompatActivity {
                         .setAction("Action", null).show();
             }
         });
-
+*/
 
     }
 
