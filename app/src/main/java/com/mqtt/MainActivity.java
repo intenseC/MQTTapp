@@ -13,6 +13,7 @@ import com.mqtt.databinding.ActivityMainBinding;
 
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.EditText;
 import android.widget.TextView;
 
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
@@ -33,14 +34,45 @@ public class MainActivity extends AppCompatActivity  {
     private ActivityMainBinding binding;
     private static final String MQTT_BROKER_0 = "tcp://192.168.1.3:1883";
     private static final String MQTT_BROKER_1 = "tcp://10.0.0.1:1883";
-    private static final String MQTT_BROKER = "tcp://192.168.11.17:1883";
-    private final String topic = "mqtt_test";
+    private static final String MQTT_BROKER2 = "tcp://192.168.11.17:1883";
+    private static  String MQTT_BROKER = "tcp://192.168.11.17:1883";
+    private static  String topic = "mqtt_test";
+
+    private static  String message = "messaging_test";
+    private static String userFields[] = new String[3];
+
+
+
 
     private MqttAsyncClient mqttClient;
     private webSocketServer webSocketSvr;
 
+
+
+    public void getUserInput() {
+        EditText editText0 = findViewById(R.id.editText0);
+        EditText editText1 = findViewById(R.id.editText1);
+        EditText editText2 = findViewById(R.id.editText2);
+        userFields[0] = MQTT_BROKER;
+        userFields[1] = topic;
+        userFields[2] = message;
+        String textValue[] = new String[3];
+        textValue[0] = editText0.getText().toString();
+        textValue[1] = editText1.getText().toString();
+        textValue[2] = editText2.getText().toString();
+
+        for(int i = 0; i < textValue.length; i++) {
+            if (!textValue[i].isEmpty()) {
+                userFields[i] = textValue[i];
+            }
+        }
+    }
+
+
+
     public void onButtonClicked() {
         scrPrint("MQTT ASYNC TESTING");
+//        getUserInput();
         MQTTAsyncTest();
 //      MQTTBlockingTest();
     }
@@ -56,6 +88,9 @@ public class MainActivity extends AppCompatActivity  {
         });
             webSocketSvr.broadcast(dat);
     }
+
+
+
 
     private void MQTTBlockingTest() {
         try {
@@ -90,10 +125,11 @@ public class MainActivity extends AppCompatActivity  {
 
 
     private void MQTTAsyncTest() {
+        getUserInput();
         MemoryPersistence memoryPersistence = new MemoryPersistence();
 
         try {
-            MqttAsyncClient mqttAsyncClient = new MqttAsyncClient(MQTT_BROKER, MqttClient.generateClientId(), memoryPersistence);
+            MqttAsyncClient mqttAsyncClient = new MqttAsyncClient(userFields[0], MqttClient.generateClientId(), memoryPersistence);
             mqttAsyncClient.setCallback(new MqttCallback() {
                 @Override
                 public void connectionLost(Throwable cause) {
@@ -124,8 +160,8 @@ public class MainActivity extends AppCompatActivity  {
                     // Connection success
                     // further MQTT operations here
                     try {
-                        MqttMessage mqttMessage = new MqttMessage("msg".getBytes());
-                        mqttAsyncClient.publish(topic, mqttMessage);
+                        MqttMessage mqttMessage = new MqttMessage(userFields[2].getBytes());
+                        mqttAsyncClient.publish(userFields[1], mqttMessage);
                     } catch (MqttException e) {
                         e.printStackTrace();
                     }
@@ -152,8 +188,7 @@ public class MainActivity extends AppCompatActivity  {
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-        System.out.println("Starting MQTT ");
-        scrPrint("Starting MQTT client...");
+
 
 
         webSocketSvr = new webSocketServer(8899) {
@@ -164,7 +199,8 @@ public class MainActivity extends AppCompatActivity  {
         };
         webSocketSvr.start();
 
-
+        System.out.println("Starting MQTT ");
+        scrPrint("Starting MQTT client...");
 //        MQTTBlockingTest();
         MQTTAsyncTest();
 
